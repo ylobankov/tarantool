@@ -1,0 +1,53 @@
+name: build_tarantool
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Tarantool branch, tag or SHA to checkout
+        default: refs/heads/master
+        required: false
+      os:
+        description: Build tarantool packages for this OS
+        default: ubuntu
+        required: false
+      dist:
+        description: OS distribution name
+        default: focal
+        required: false
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    env:
+      OS: ${{ github.event.inputs.os }}
+      DIST: ${{ github.event.inputs.dist }}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.inputs.ref }}
+          fetch-depth: 0
+          submodules: recursive
+      - uses: ./.github/actions/environment
+      - name: Build tarantool packages for ${{ env.OS }}(${{ env.DIST }})
+        run: |
+          # Our testing expects that the init process (PID 1) will
+          # reap orphan processes. At least the following test leans
+          # on it: app-tap/gh-4983-tnt-e-assert-false-hangs.test.lua.
+          echo PACKPACK_EXTRA_DOCKER_RUN_PARAMS='--init' | tee -a $GITHUB_ENV
+          # There are packages like tzdata or postfix, whose configuration
+          # is interactive by default. The environment variable below
+          # fordibs interactive configuration phase. Otherwise the CI stucks
+          # from time to time on `apt-get update`.
+          export DEBIAN_FRONTEND=noninteractive
+          # Build packages.
+          make -f .gitlab.mk package
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ env.OS }}-${{ env.DIST }}
+          path: |
+            build/tarantool-common_*_all.deb
+            build/tarantool-dev_*_amd64.deb
+            build/tarantool_*_amd64.deb
+          if-no-files-found: error
