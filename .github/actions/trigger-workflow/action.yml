@@ -1,0 +1,80 @@
+name: 'Trigger a Workflow'
+
+description: 'Trigger a workflow from another workflow'
+
+inputs:
+  token:
+    description: 'The GitHub token to use for making API requests'
+    default: ${{ github.token }}
+    required: false
+  repo:
+    description: |
+      The full name of the repository like <owner>/<name> where the workflow
+      is contained
+    default: ${{ github.repository }}
+    required: false
+  ref:
+    description: 'The reference of the workflow, can be a branch or tag'
+    default: ${{ github.ref }}
+    required: false
+  head_sha:
+    description: |
+      The head commit SHA of the workflow reference, it is used for searching
+      the workflow run
+    default: ${{ github.sha }}
+    required: false
+  workflow_id:
+    description: |
+      The ID of the workflow, can be replaced with the workflow file name
+    required: true
+  inputs:
+    description: 'Inputs to pass to the workflow, must be a JSON string'
+    default: '{}'
+    required: false
+  wait_timeout:
+    description: 'The timeout in seconds to wait for the workflow run to finish'
+    default: '600'
+    required: false
+  wait_interval:
+    description: |
+      The interval in seconds between requests to check the workflow run
+      is finished
+    default: '10'
+    required: false
+  propagate:
+    description: Fail the action if the workflow run is not succeeded
+    default: 'true'
+    required: false
+
+outputs:
+  run_id:
+    description: 'The ID of the workflow run'
+    value: ${{ steps.trigger_workflow.outputs.run_id }}
+  run_url:
+    description: 'The URL of the workflow run'
+    value: ${{ steps.trigger_workflow.outputs.run_url }}
+  run_conclusion:
+    description: 'The conclusion of the workflow run'
+    value: ${{ steps.trigger_workflow.outputs.run_conclusion }}
+  run_logs_url:
+    description: 'The logs URL of the workflow run'
+    value: ${{ steps.trigger_workflow.outputs.run_logs_url }}
+
+runs:
+  using: composite
+  steps:
+    - run: pip3 install requests==2.26.0
+      shell: bash
+    - id: trigger_workflow
+      run: |
+        ./.github/actions/trigger-workflow/trigger_workflow.py \
+          --token ${{ inputs.token }} \
+          --repo ${{ inputs.repo }} \
+          --ref ${{ inputs.ref }} \
+          --head-sha ${{ inputs.head_sha }} \
+          --workflow-id ${{ inputs.workflow_id }} \
+          --inputs '${{ inputs.inputs }}' \
+          --wait-timeout ${{ inputs.wait_timeout }} \
+          --wait-interval ${{ inputs.wait_interval }} \
+          $(if [ ${{ inputs.propagate }} = true ]; then echo '--propagate'; fi)
+      shell: bash

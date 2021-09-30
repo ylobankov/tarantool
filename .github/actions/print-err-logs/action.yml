@@ -1,0 +1,23 @@
+name: 'Print Error Logs'
+
+description: 'Download and print logs of a workflow run where an error occurred'
+
+inputs:
+  logs_url:
+    description: 'The URL to download logs'
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - run: |
+        if [ -n '${{ inputs.logs_url }}' ]; then
+          ZIP_ARCHIVE=$(uuidgen).zip
+          curl '${{ inputs.logs_url }}' --output $ZIP_ARCHIVE
+          unzip $ZIP_ARCHIVE
+          python -c "print('*' * 42, 'Logs start from here', '*' * 42)"
+          cat $(grep -Fl '#[error]' *.txt)
+        else
+          echo 'Logs URL is empty'
+        fi
+      shell: bash

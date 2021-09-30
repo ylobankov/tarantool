@@ -1,0 +1,89 @@
+name: check_module_integration
+
+on:
+  push:
+#    branches:
+#      - 'master'
+#      - '[0-9].[0-9]+*'  # release branches
+  workflow_dispatch:
+
+env:
+  OS: ubuntu
+  DIST: focal
+  BUILD_WORKFLOW_ID: build_tarantool.yml
+  TEST_WORKFLOW_ID: check_tarantool_integration.yml
+
+jobs:
+  build_tarantool:
+    runs-on: ubuntu-20.04
+    outputs:
+      trace_id: ${{ steps.gen_trace_id.outputs.trace_id }}
+      run_id: ${{ steps.run_build_workflow.outputs.run_id }}
+    steps:
+      - id: gen_trace_id
+        run: |
+          TRACE_ID=$(uuidgen)
+          echo "::set-output name=trace_id::$TRACE_ID"
+          echo "Trace ID: $TRACE_ID"
+      - uses: actions/checkout@v2
+      - name: 'Trigger the workflow for building tarantool packages'
+        id: run_build_workflow
+        uses: ./.github/actions/trigger-workflow
+        with:
+          token: ${{ secrets.GH_TOKEN }}  # remove later
+          workflow_id: ${{ env.BUILD_WORKFLOW_ID }}
+          inputs: |
+            {
+              "ref": "${{ github.ref }}",
+              "os": "${{ env.OS }}",
+              "dist": "${{ env.DIST }}",
+              "trace_id": "${{ steps.gen_trace_id.outputs.trace_id }}"
+            }
+      - if: failure()
+        name: 'Print logs if the workflow run failed'
+        uses: ./.github/actions/print-err-logs
+        with:
+          logs_url: ${{ steps.run_build_workflow.outputs.run_logs_url }}
+
+  run_module_tests:
+    needs: build_tarantool
+    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - vshard
+    steps:
+      - uses: actions/checkout@v2
+      - name: 'Clone the module'
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ github.repository_owner }}/${{ matrix.module }}
+          path: ${{ matrix.module }}
+      - name: 'Get the head commit SHA of the module'
+        id: get_module_head_sha
+        run: echo "::set-output name=head_sha::$(git log -1 --format='%H')"
+        working-directory: ${{ matrix.module }}
+      - name: 'Trigger the workflow for running ${{ matrix.module }} tests'
+        id: run_tests_workflow
+        uses: ./.github/actions/trigger-workflow
+        with:
+          token: ${{ secrets.GH_TOKEN }}  # remove later
+          repo: ${{ github.repository_owner }}/${{ matrix.module }}
+          workflow_id: ${{ env.TEST_WORKFLOW_ID }}
+          ref: master
+          head_sha: ${{ steps.get_module_head_sha.outputs.head_sha }}
+          inputs: |
+            {
+              "repo": "${{ github.repository }}",
+              "workflow_id": "${{ env.BUILD_WORKFLOW_ID }}",
+              "run_id": "${{ needs.build_tarantool.outputs.run_id }}",
+              "sha": "${{ github.sha }}",
+              "artifact_name": "${{ env.OS }}-${{ env.DIST }}",
+              "trace_id": "${{ needs.build_tarantool.outputs.trace_id }}"
+            }
+      - if: failure()
+        name: 'Print logs if the workflow run failed'
+        uses: ./.github/actions/print-err-logs
+        with:
+          logs_url: ${{ steps.run_tests_workflow.outputs.run_logs_url }}
