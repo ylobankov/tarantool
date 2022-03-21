@@ -43,10 +43,33 @@ jobs:
       fail-fast: false
       matrix:
         run-map:
-          - { dist: '7', arch: 'x86_64' }
-          - { dist: '7', arch: 'aarch64' }
-          - { dist: '8', arch: 'x86_64' }
-          - { dist: '8', arch: 'aarch64' }
+          - { os: 'el',  dist: '7', arch: 'x86_64' } # CentOS 7
+          - { os: 'el', dist: '7', arch: 'aarch64' } # CentOS 7
+          - { os: 'el', dist: '8', arch: 'x86_64' } # CentOS 8
+          - { os: 'el', dist: '8', arch: 'aarch64' } # CentOS 8
+          - { os: 'debian', dist: 'stretch', arch: 'x86_64' } # Debian 9
+          - { os: 'debian', dist: 'buster', arch: 'x86_64' } # Debian 10
+          - { os: 'debian', dist: 'buster', arch: 'aarch64' } # Debian 10
+          - { os: 'debian', dist: 'bullseye', arch: 'x86_64' } # Debian 11
+          - { os: 'debian', dist: 'bullseye', arch: 'aarch64' } # Debian 11
+          - { os: 'fedora', dist: '30', arch: 'x86_64' } # Fedora 30
+          - { os: 'fedora', dist: '31', arch: 'x86_64' } # Fedora 31
+          - { os: 'fedora', dist: '32', arch: 'x86_64' } # Fedora 32
+          - { os: 'fedora', dist: '33', arch: 'x86_64' } # Fedora 33
+          - { os: 'fedora', dist: '33', arch: 'aarch64' } # Fedora 33
+          - { os: 'fedora', dist: '34', arch: 'x86_64' } # Fedora 34
+          - { os: 'fedora', dist: '34', arch: 'aarch64' } # Fedora 34
+          - { os: 'fedora', dist: '35', arch: 'x86_64' } # Fedora 35
+          - { os: 'fedora', dist: '35', arch: 'aarch64' } # Fedora 35
+          - { os: 'opensuse-leap', dist: '15.1', arch: 'x86_64' } # openSUSE 15.1
+          - { os: 'opensuse-leap', dist: '15.2', arch: 'x86_64' } # openSUSE 15.2
+          - { os: 'ubuntu', dist: 'xenial', arch: 'x86_64' } # Ubuntu 16.04
+          - { os: 'ubuntu', dist: 'bionic', arch: 'x86_64' } # Ubuntu 18.04
+          - { os: 'ubuntu', dist: 'focal', arch: 'x86_64' } # Ubuntu 20.04
+          - { os: 'ubuntu', dist: 'focal', arch: 'aarch64' } # Ubuntu 20.04
+          - { os: 'ubuntu', dist: 'hirsute', arch: 'x86_64' } # Ubuntu 21.04
+          - { os: 'ubuntu', dist: 'hirsute', arch: 'aarch64' } # Ubuntu 21.04
+          - { os: 'ubuntu', dist: 'impish', arch: 'x86_64' } # Ubuntu 21.10
 
     runs-on: ${{ matrix.run-map.arch == 'x86_64' && 'ubuntu-20.04-self-hosted' || 'graviton' }}
 
@@ -59,7 +82,7 @@ jobs:
       - name: packaging
         env:
           RWS_AUTH: ${{ secrets.RWS_AUTH }}
-          OS: 'el'
+          OS: ${{ matrix.run-map.os }}
           DIST: ${{ matrix.run-map.dist }}
         uses: ./.github/actions/pack_and_deploy
       - name: call action to send Telegram message on failure
@@ -72,6 +95,6 @@ jobs:
         uses: actions/upload-artifact@v2
         if: failure()
         with:
-          name: centos-${{ matrix.run-map.dist }}-${{ matrix.run-map.arch }}
+          name: ${{ matrix.run-map.os }}-${{ matrix.run-map.dist }}-${{ matrix.run-map.arch }}
           retention-days: 21
-          path: build/usr/src/*/tarantool-*/test/var/artifacts
+          path: ${{ env.VARDIR }}/artifacts
