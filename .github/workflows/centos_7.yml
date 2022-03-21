@@ -2,11 +2,11 @@ name: centos_7
 
 on:
   push:
-    branches:
-      - 'master'
-      - '[0-9].[0-9]+'
-    tags:
-      - '**'
+#    branches:
+#      - 'master'
+#      - '[0-9].[0-9]+'
+#    tags:
+#      - '**'
   pull_request:
     types: [opened, reopened, synchronize, labeled]
   workflow_dispatch:
@@ -39,7 +39,16 @@ jobs:
         ( github.event_name != 'pull_request' ||
           contains(github.event.pull_request.labels.*.name, 'full-ci') )
 
-    runs-on: ubuntu-20.04-self-hosted
+    strategy:
+      fail-fast: false
+      matrix:
+        run-map:
+          - { dist: '7', arch: 'x86_64' }
+          - { dist: '7', arch: 'aarch64' }
+          - { dist: '8', arch: 'x86_64' }
+          - { dist: '8', arch: 'aarch64' }
+
+    runs-on: ${{ matrix.run-map.arch == 'x86_64' && 'ubuntu-20.04-self-hosted' || 'graviton' }}
 
     steps:
       - uses: actions/checkout@v2.3.4
@@ -51,7 +60,7 @@ jobs:
         env:
           RWS_AUTH: ${{ secrets.RWS_AUTH }}
           OS: 'el'
-          DIST: '7'
+          DIST: ${{ matrix.run-map.dist }}
         uses: ./.github/actions/pack_and_deploy
       - name: call action to send Telegram message on failure
         env:
@@ -63,6 +72,6 @@ jobs:
         uses: actions/upload-artifact@v2
         if: failure()
         with:
-          name: centos-7
+          name: centos-${{ matrix.run-map.dist }}-${{ matrix.run-map.arch }}
           retention-days: 21
           path: build/usr/src/*/tarantool-*/test/var/artifacts
