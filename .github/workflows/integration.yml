@@ -37,7 +37,7 @@ jobs:
     # or on pull request if the 'full-ci' or 'integration-ci' label is set or
     # already exists.
     if: |
-      github.repository == 'tarantool/tarantool' && (
+      github.repository == 'ylobankov/tarantool' && (
         github.event_name != 'pull_request' || (
           ( github.event.action == 'labeled' && (
             github.event.label.name == 'full-ci' ||
